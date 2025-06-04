@@ -121,6 +121,8 @@ const HomePage = () => {
     }
   };
 
+  //update
+
   // Poll every 3 seconds
   useEffect(() => {
     fetchReceivedMessages(); // initial fetch
