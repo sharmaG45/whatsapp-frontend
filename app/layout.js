@@ -2,6 +2,8 @@ import "./globals.css";
 import Header from "./_components/Header/page";
 import Footer from "./_components/Footer/page";
 import 'bootstrap/dist/css/bootstrap.min.css';
+import "bootstrap/dist/css/bootstrap.min.css";
+import "@fortawesome/fontawesome-free/css/all.min.css";
 
 export const metadata = {
   title: "Create Next App",
@@ -12,7 +14,14 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <head>
-        
+        <link
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+          rel="stylesheet"
+        />
+        <link
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+          rel="stylesheet"
+        />
         <link rel="stylesheet" href="../assets/style.css"></link>
       </head>
       <body>

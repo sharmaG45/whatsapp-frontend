@@ -5,9 +5,49 @@ import React, { useState, useEffect, useRef } from "react";
 const HomePage = () => {
   const [phone, setPhone] = useState("");
   const [sentMessages, setSentMessages] = useState([]);
+  const [receivedMessages, setReceivedMessages] = useState([]);
+  const messagesEndRef = useRef(null);
+  const prevLength = useRef(0);
+  const [messageText, setMessageText] = useState("");
 
-  const sendMessage = () => {
-    console.log("Send message");
+  const sendMessage = async () => {
+    if (!messageText.trim()) return;
+
+    try {
+      const response = await fetch(
+        "https://6f1d4ecf-f0fa-4d0b-92fe-efcb690973b5-00-1xkxrzrpqksie.sisko.replit.dev/sendMessage",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            phone: "919097989707", // Replace with selected user later
+            message: messageText,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      // Add sent message to UI
+      setSentMessages((prev) => [
+        ...prev,
+        {
+          from: "server",
+          message: messageText,
+          timestamp: new Date().toISOString(),
+          status: "sent",
+        },
+      ]);
+
+      // Clear input field
+      setMessageText("");
+
+      console.log("✅ Message sent", data);
+    } catch (err) {
+      console.error("❌ Failed to send message", err);
+    }
   };
 
   const showProfileSettings = () => {
@@ -69,8 +109,6 @@ const HomePage = () => {
     }
   };
 
-  const [receivedMessages, setReceivedMessages] = useState([]);
-
   const fetchReceivedMessages = async () => {
     try {
       const res = await fetch(
@@ -83,18 +121,28 @@ const HomePage = () => {
     }
   };
 
+  // Poll every 3 seconds
   useEffect(() => {
-    fetchReceivedMessages();
+    fetchReceivedMessages(); // initial fetch
+
+    const interval = setInterval(() => {
+      fetchReceivedMessages();
+    }, 1000); // fetch every 3 sec
+
+    return () => clearInterval(interval); // cleanup
   }, []);
 
-  const messagesEndRef = useRef(null);
-
+  // Scroll only if new message is received
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [receivedMessages, sentMessages]);
+    if (receivedMessages.length > prevLength.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+    prevLength.current = receivedMessages.length;
+  }, [receivedMessages]);
 
+  // Combine sent + received and sort by timestamp
   const allMessages = [...receivedMessages, ...sentMessages]
-    .filter((msg) => msg.type !== "status") // exclude status updates
+    .filter((msg) => msg.type !== "status")
     .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
   return (
@@ -249,12 +297,28 @@ const HomePage = () => {
 
           {/* Messages */}
           <div
-            className="d-flex flex-column"
+            className="d-flex flex-column flex-grow-1 overflow-auto px-3"
             id="messages"
-            style={{ maxHeight: "400px", overflowY: "auto", padding: "1rem" }}
+            style={{ paddingTop: "1rem" }}
           >
             {allMessages.map((msg, idx) => {
               const isSent = msg.from === "server" || msg.status === "sent";
+
+              // Construct media URL (only if it's a media message)
+              const mediaUrl =
+                msg.type === "media"
+                  ? `https://6f1d4ecf-f0fa-4d0b-92fe-efcb690973b5-00-1xkxrzrpqksie.sisko.replit.dev/media/${
+                      msg.mediaId
+                    }.${
+                      msg.mediaType === "image"
+                        ? "jpg"
+                        : msg.mediaType === "video"
+                        ? "mp4"
+                        : msg.mediaType === "audio"
+                        ? "ogg"
+                        : "bin"
+                    }`
+                  : null;
 
               return (
                 <div
@@ -266,7 +330,35 @@ const HomePage = () => {
                   }`}
                   style={{ maxWidth: "75%", position: "relative" }}
                 >
-                  <div>{msg.message}</div>
+                  {msg.type === "media" && msg.mediaType === "image" && (
+                    <img
+                      src={mediaUrl}
+                      alt="Media"
+                      className="img-fluid rounded"
+                      style={{ maxWidth: "100%" }}
+                    />
+                  )}
+                  {msg.type === "media" && msg.mediaType === "video" && (
+                    <video controls width="100%">
+                      <source src={mediaUrl} type="video/mp4" />
+                      Your browser does not support the video tag.
+                    </video>
+                  )}
+                  {msg.type === "media" && msg.mediaType === "audio" && (
+                    <audio controls>
+                      <source src={mediaUrl} type="audio/ogg" />
+                      Your browser does not support the audio element.
+                    </audio>
+                  )}
+                  {msg.type === "media" && msg.mediaType === "document" && (
+                    <a
+                      href={`/media/${msg.mediaId}.pdf`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-outline-primary"
+                    ></a>
+                  )}
+                  {msg.message && <div className="mt-1">{msg.message}</div>}
                   <small
                     className="text-muted d-flex justify-content-end align-items-center gap-1"
                     style={{ fontSize: "0.75rem" }}
@@ -277,7 +369,7 @@ const HomePage = () => {
                     })}
                     {isSent && (
                       <span style={{ fontSize: "1rem", marginLeft: "5px" }}>
-                        ✔{/* or ✔✔ for double tick */}
+                        ✔
                       </span>
                     )}
                   </small>
@@ -290,7 +382,7 @@ const HomePage = () => {
 
           {/* Input */}
           <div
-            className="d-none justify-self-end align-items-center flex-row"
+            className="d-flex justify-self-end align-items-center flex-row"
             id="input-area"
           >
             <a href="#">
@@ -305,6 +397,8 @@ const HomePage = () => {
               id="input"
               placeholder="Type a message"
               className="flex-grow-1 border-0 px-3 py-2 my-3 rounded shadow-sm"
+              value={messageText}
+              onChange={(e) => setMessageText(e.target.value)}
             />
             <i
               className="fas fa-paper-plane text-muted px-3"
